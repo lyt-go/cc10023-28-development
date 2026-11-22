@@ -100,3 +100,53 @@ class MiningResultService(BaseModuleService):
                 topics[topic] = rid
         return {"ok": True, "unique_count": len(topics), "duplicate_count": len(duplicates),
                 "duplicates": duplicates}
+
+    # ── 项目分群指标: 挖掘详情入口与分群洞察 ──
+    def generate_group_insight(self, project: str, scope: str) -> dict[str, Any]:
+        """挖掘详情入口：用项目分群指标允许的分子分母计算高分率，生成待复核的分群洞察。"""
+        from app.services import service_for
+        metric = service_for("project_metric")
+        if metric is None:
+            return {"ok": False, "message": "项目分群指标模块未注册"}
+        return metric.submit_metric_request(project, scope, entry="挖掘详情")
+
+    def open_group_insight(self, insight_id: int, viewer: str) -> dict[str, Any]:
+        """按查看方打开分群洞察。
+
+        数据所有方始终可核对当时的分母和授权版本；被撤权项目重新打开原洞察时
+        只能看到撤权状态，看不到任何分子分母。
+        """
+        insight: dict[str, Any] | None = None
+        for row in store.internal_rows("group_insight"):
+            if int(row.get("id", 0)) == insight_id:
+                insight = row
+                break
+        if insight is None:
+            return {"ok": False, "message": f"分群洞察 {insight_id} 不存在或已归档"}
+        delivered = str(insight.get("交付项目", ""))
+        still_valid = {
+            g.get("样本编号") for g in store.internal_rows("sample_grant")
+            if g.get("项目") == delivered and g.get("状态") == "有效"
+        }
+        revoked = bool(insight.get("撤权标记")) or any(
+            sid not in still_valid for sid in insight.get("样本清单", [])
+        )
+        if viewer == insight.get("数据所有方"):
+            return {"ok": True, "viewer": viewer, **insight, "撤权标记": revoked}
+        if viewer == delivered and revoked:
+            return {
+                "ok": True, "viewer": viewer, "洞察编号": insight.get("洞察编号"),
+                "status": "已撤权",
+                "message": "共享已撤销，被撤权项目仅可查看撤权状态",
+            }
+        return {"ok": True, "viewer": viewer, **insight}
+
+    def list_group_insights(self, project: str | None = None) -> dict[str, Any]:
+        """列出分群洞察；指定项目时返回它作为交付方或数据所有方能看到的洞察。"""
+        rows = [
+            dict(row) for row in store.internal_rows("group_insight")
+            if project is None
+            or row.get("交付项目") == project
+            or row.get("数据所有方") == project
+        ]
+        return {"ok": True, "insights": rows, "count": len(rows)}

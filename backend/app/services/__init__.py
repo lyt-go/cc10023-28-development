@@ -14,6 +14,7 @@ from app.services.train_pipeline import TrainPipelineService
 from app.services.model_registry import ModelRegistryService
 from app.services.predict_batch import PredictBatchService
 from app.services.mining_result import MiningResultService
+from app.services.project_metric import ProjectMetricService
 from app.services.cluster_config import ClusterConfigService
 from app.services.feature_corr import FeatureCorrService
 from app.services.drift_monitor import DriftMonitorService
@@ -34,6 +35,7 @@ SERVICES: dict[str, BaseModuleService] = {
     "model_registry": ModelRegistryService(),
     "predict_batch": PredictBatchService(),
     "mining_result": MiningResultService(),
+    "project_metric": ProjectMetricService(),
     "cluster_config": ClusterConfigService(),
     "feature_corr": FeatureCorrService(),
     "drift_monitor": DriftMonitorService(),

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.seed import SEED_ROWS
+from app.seed import INTERNAL_SEED_ROWS, SEED_ROWS
 
 
 class Store:
@@ -14,12 +14,24 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        self._internal_tables: dict[str, list[dict[str, Any]]] = {}
+        self.reset_internal()
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])
+
+    def internal_rows(self, name: str) -> list[dict[str, Any]]:
+        """跨服务共享的内部表（预测样本、样本授权、分群洞察、交付台账），不计入业务模块清单。"""
+        return self._internal_tables.setdefault(name, [])
+
+    def reset_internal(self) -> None:
+        """把内部表重置回种子状态，供撤权场景核对与测试隔离使用。"""
+        self._internal_tables = {
+            name: [dict(row) for row in rows] for name, rows in INTERNAL_SEED_ROWS.items()
+        }
 
     def find(self, module: str, entry_id: int) -> dict[str, Any] | None:
         for row in self.rows(module):
